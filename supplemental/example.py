@@ -1,0 +1,176 @@
+import random
+
+# First click is never a mine.
+
+class Cell:
+    def __init__(self):
+        self.is_mine = False
+        self.revealed = False
+        self.flagged = False
+        self.neighbor_mines = 0
+
+# Defines board with rows and columns, all functions underneath
+
+class Board:
+    def __init__(self, rows, cols, mines):
+        self.rows = rows
+        self.cols = cols
+        self.mines = mines
+        self.grid = [[Cell() for _ in range(cols)] for _ in range(rows)]
+        self.mines_placed = False
+    
+    # User interface
+
+    def display(self):
+        print("   ", end="")
+        for c in range(self.cols):
+            print(f"{c+1:2}", end=" ")
+        print()
+
+        for r in range(self.rows):
+            print(f"{r+1:2} ", end="")
+            for c in range(self.cols):
+                cell = self.grid[r][c]
+
+                if cell.flagged:
+                    print(" F ", end="")
+                elif not cell.revealed:
+                    print(" ■ ", end="")
+                elif cell.is_mine:
+                    print(" X ", end="")
+                else:
+                    print(f" {cell.neighbor_mines} ", end="")
+
+            print()
+        print()
+
+    # Revealing a square
+
+    def reveal(self, r, c):
+        cell = self.grid[r][c]
+
+        if not (0 <= r < board.rows and 0 <= c < board.cols):
+            print("Out of bounds")
+
+        if cell.revealed or cell.flagged:
+            return "invalid"
+
+        if not self.mines_placed:
+            self.place_mines(r, c)
+
+        cell.revealed = True
+
+        if cell.is_mine:
+            return "mine"
+
+        if cell.neighbor_mines == 0:
+            self.flood_fill(r, c)
+
+        return "safe"
+
+    # Mine placement
+
+    def place_mines(self, first_r, first_c):
+        positions = [(r, c) for r in range(self.rows) for c in range(self.cols)]
+        safe_zone = []
+        for dr in [0, 1]:
+            for dc in [0, 1]:
+                nr, nc = first_r + dr, first_c + dc
+                if 0 <= nr < self.rows and 0 <= nc < self.cols:
+                    safe_zone.append((nr, nc))
+        positions = [pos for pos in positions if pos not in safe_zone]
+
+        for r, c in random.sample(positions, self.mines):
+            self.grid[r][c].is_mine = True
+
+        self.calculate_numbers()
+        self.mines_placed = True
+
+    # Calculates neighboring mine counts
+
+    def calculate_numbers(self):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if self.grid[r][c].is_mine:
+                    continue
+
+                count = 0
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < self.rows and 0 <= nc < self.cols:
+                            if self.grid[nr][nc].is_mine:
+                                count += 1
+
+                self.grid[r][c].neighbor_mines = count
+
+    # Flood filling all cells adjacently 0
+
+    def flood_fill(self, r, c):
+        for dr in [-1, 0, 1]:
+            for dc in [-1, 0, 1]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < self.rows and 0 <= nc < self.cols:
+                    neighbor = self.grid[nr][nc]
+                    if not neighbor.revealed and not neighbor.is_mine and not neighbor.flagged:
+                        neighbor.revealed = True
+                        if neighbor.neighbor_mines == 0:
+                            self.flood_fill(nr, nc)
+
+    # Flagging
+
+    def toggle_flag(self, r, c):
+        cell = self.grid[r][c]
+        if not cell.revealed:
+            cell.flagged = not cell.flagged
+    
+    # Checking for a win
+
+    def check_win(self):
+        for r in range(self.rows):
+            for c in range(self.cols):
+                cell = self.grid[r][c]
+                
+                if not cell.is_mine and not cell.revealed:
+                    return False
+        
+        return True
+
+# Main game loop
+
+difficulty = input("What difficulty would you like? Easy, medium, or hard: ")
+if difficulty.lower() == "easy":
+    board = Board(8, 10, 10)
+elif difficulty.lower() == "medium":
+    board = Board(14, 18, 40)
+elif difficulty.lower() == "hard":
+    board = Board(20, 24, 99)
+else:
+    print("Invalid difficulty, defaulting to easy. ")
+    board = Board(8, 10, 10)
+
+while True:
+    board.display()
+    
+    action = input("Enter move (r/f col row): ").split()
+    print ("\n")
+    
+    if len(action) != 3:
+        print("Invalid input\n")
+        continue
+    
+    cmd, c, r = action[0], int(action[1])-1, int(action[2])-1
+    
+    if cmd == "r":
+        result = board.reveal(r, c)
+        if result == "mine":
+            print("BOOM. You lost.\n")
+            board.display()
+            break
+        if board.check_win():
+            print("You win!\n")
+            board.display()
+            break
+
+    elif cmd == "f":
+        board.toggle_flag(r, c)
