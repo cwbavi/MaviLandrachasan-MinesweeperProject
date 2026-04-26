@@ -1,6 +1,10 @@
 from cell import *
 from graphics import *
 from random import *
+from math import *
+
+# Sets difference to be adjacent.
+var = [-1, 0, 1]
 
 class Board:
 
@@ -14,7 +18,7 @@ class Board:
         
         # Creates cells and puts them into a list
         self.cells = [[Cell(row, col, cellSize, win) for col in range(self.cols)] for row in range(self.rows)]
-        self.mines = [[0] * self.cols] * self.rows
+        self.mines = []
         self.revealedMines = 0
         self._draw(win)
     
@@ -48,3 +52,46 @@ class Board:
                               self._cells(cell0.row + 1, cell0.col)]:
                     if (cell1 is not None) and (not cell1.isRevealed):
                         self._floodFill(cell1)
+
+    # The first reveal works differently as the code must ensure that the reveal lands on a completely empty square.
+    def initialReveal(self, row, col):
+
+        # Creates mines until the quota of mines has been met.
+        i = 0
+        while i < self.numMines:
+            x = randint(0, self.rows)
+            y = randint(0, self.cols)
+
+            # The mine cannot be in reach of the first reveal and it cannot be placed at the location of another mine.
+            if abs(row - x) > 1 and abs(col - y) > 1 and ([x, y] not in self.mines):
+                self.mines.append([x, y])
+                i += 1
+        
+        # Changes the properties of the selected cells to become mines.
+        for mine in self.mines:
+            self.cells[mine[0]][mine[1]].fill(True, 9)
+
+        # Sets adjacent mines
+        for cell in self.cells:
+            adjacentMines = 0
+            if not cell.isMine:
+                for x in var:
+                    for y in var:
+                        if [cell.row + x, cell.col + y] in self.mines:
+                            adjacentMines += 1
+                cell.fill(False, adjacentMines)
+    
+    # Reveals the cell. Reveals all mines if cell is a mine and flood fills if completely empty.
+    def reveal(self, row, col):
+        cell = self.cells[row][col]
+
+        # Flood fill
+        if cell.adjacentMines == 0:
+            self._floodFill(cell)
+        else:
+            cell.reveal()
+
+            # Reveals all mines.
+            if cell.isMine == True:
+                for mine in self.mines:
+                    self.cells[mine[0]][mine[1]].reveal()

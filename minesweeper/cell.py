@@ -59,6 +59,8 @@ class Cell:
         for obj in self.drawn:
             obj.undraw()
         self.drawn = []
+
+        # Starts drawing.
         box = Rectangle(Point(self.x, self.y), Point(self.x + self.size, self.y + self.size))
         self._objDraw(box)
         if self.isRevealed:
