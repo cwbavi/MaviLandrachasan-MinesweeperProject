@@ -86,3 +86,48 @@ class Game:
                               self.window_size // 2 + 40, hudY + 50)
         self.quitBoxBounds = (self.window_size - 90, hudY + 10,
                               self.window_size - 10,  hudY + 50)
+        
+        def _inBounds(self, x, y, bounds):
+            return bounds[0] <= x <= bounds[2] and bounds[1] <= y <= bounds[3]
+        
+        def _drawEndScreen(self, message):
+            # Draw end game screen with message
+            overlay = Rectangle(Point(0, 0), Point(self.window_size, self.window_height))
+            overlay.setFill(color_rgb(0, 0, 0))
+            overlay.setOutline(color_rgb(0, 0, 0))
+            overlay.setFill(color_rgb(0, 0, 0, 150))  # semi-transparent
+            overlay.draw(self.win)
+
+            endText = Text(Point(self.window_size // 2, self.window_height // 2), message)
+            endText.setTextColor("white")
+            endText.setSize(24)
+            endText.setStyle("bold")
+            endText.draw(self.win)
+
+        def start(self):
+            while not self.isOver:
+                click = self.win.getMouse()
+                x, y = click.getX(), click.getY()
+
+                if self._inBounds(x, y, self.flagBoxBounds):
+                    self.board.toggleFlagMode()
+                elif self._inBounds(x, y, self.quitBoxBounds):
+                    self.isOver = True
+                else:
+                    cell = self.board.getCellAtPixel(x, y)
+                    if cell:
+                        if self.board.flagMode:
+                            cell.toggleFlag()
+                        else:
+                            if self.isFirstClick:
+                                self.board.placeMines(cell.row, cell.col)
+                                self.isFirstClick = False
+                            cell.reveal()
+                            if cell.isMine:
+                                self._drawEndScreen("Game Over!")
+                                self.isOver = True
+                            elif self.board.checkWin():
+                                self._drawEndScreen("You Win!")
+                                self.isOver = True
+
+                self._drawHUD()
