@@ -1,188 +1,186 @@
-from board import *
+from board import Board
 from graphics import *
+import time
 
-# Window dimensions
-WINDOW_SIZE = 600
+HUD_HEIGHT = 60
 
-# Difficulty presets: (rows, cols, numMines)
-DIFFICULTIES = {
-    "easy":   (8,  8,  10),
-    "medium": (16, 16, 40),
-    "hard":   (16, 30, 99)
-}
 
 class Game:
+    def __init__(self, difficulty):
+        difficulties = [
+            (8, 8, 10),
+            (16, 16, 40),
+            (16, 30, 99)
+        ]
 
-    # Creates the game with all its specs once Game is called.
-    def __init__(self, difficulty="easy"):
-        self.rows, self.cols, self.numMines = DIFFICULTIES[difficulty]
-        self.cellSize = WINDOW_SIZE // max(self.rows, self.cols)
-        self.winWidth  = self.cols * self.cellSize
-        self.winHeight = self.rows * self.cellSize + 60  # extra space for HUD
-        self.isFirstClick = True
-        self.isOver = False
-        self.flagCount = 0
+        self.rows, self.cols, self.numMines = difficulties[difficulty]
 
-        # Creates the window
-        self.win = GraphWin("Minesweeper", self.winWidth, self.winHeight)
-        self.win.setBackground(color_rgb(50, 50, 50))
+        self.windowSize = 600
+        self.cellSize = self.windowSize // max(self.rows, self.cols)
 
-        # Creates the board
+        self.win = GraphWin("Minesweeper", self.windowSize, self.windowSize + HUD_HEIGHT)
+        self.win.setBackground(color_rgb(40, 40, 40))
+
         self.board = Board(self.rows, self.cols, self.cellSize, self.numMines, self.win)
 
-        # Draws the HUD (mine counter, flag button, quit button)
-        self.hudItems = []
-        self._drawHUD()
+        # State
+        self.isOver = False
+        self.isFirstClick = True
+        self.flagMode = False
+        self.flagCount = 0
 
-    # ------------------------------------------------------------------ #
-    #  HUD                                                                 #
-    # ------------------------------------------------------------------ #
+        # Timer
+        self.timerStarted = False
+        self.startTime = 0
 
-    # Draws the HUD at the bottom of the window.
-    def _drawHUD(self):
+        # HUD objects
+        self._createHUD()
 
-        # Undraws all previously drawn HUD items.
-        for obj in self.hudItems:
-            obj.undraw()
-        self.hudItems = []
+    # =========================
+    # HUD CREATION
+    # =========================
 
-        hudY = self.rows * self.cellSize  # top of HUD strip
+    def _createHUD(self):
 
-        # HUD background
-        bg = Rectangle(Point(0, hudY), Point(self.winWidth, self.winHeight))
-        bg.setFill(color_rgb(30, 30, 30))
-        bg.setOutline(color_rgb(30, 30, 30))
-        bg.draw(self.win)
-        self.hudItems.append(bg)
+        # background
+        self.hudBG = Rectangle(
+            Point(0, self.windowSize),
+            Point(self.windowSize, self.windowSize + HUD_HEIGHT)
+        )
+        self.hudBG.setFill(color_rgb(25, 25, 25))
+        self.hudBG.setOutline(color_rgb(25, 25, 25))
+        self.hudBG.draw(self.win)
 
-        # Mine counter (remaining mines = numMines - flags placed)
-        remaining = self.numMines - self.flagCount
-        mineText = Text(Point(60, hudY + 30), "Mines: " + str(remaining))
-        mineText.setTextColor("white")
-        mineText.setSize(14)
-        mineText.setStyle("bold")
-        mineText.draw(self.win)
-        self.hudItems.append(mineText)
+        # FLAG ICON + COUNT
+        fx, fy, s = 20, self.windowSize + 10, 30
 
-        # Flag button
-        flagBox = Rectangle(Point(self.winWidth // 2 - 40, hudY + 10),
-                            Point(self.winWidth // 2 + 40, hudY + 50))
-        flagBox.setFill(color_rgb(80, 80, 80))
-        flagBox.draw(self.win)
-        self.hudItems.append(flagBox)
+        self.flagIcon = Polygon(
+            Point(fx + s * 0.3, fy + s * 0.15),
+            Point(fx + s * 0.7, fy + s * 0.35),
+            Point(fx + s * 0.3, fy + s * 0.55)
+        )
+        self.flagIcon.setFill("red")
+        self.flagIcon.setOutline("red")
+        self.flagIcon.draw(self.win)
 
-        flagLabel = Text(Point(self.winWidth // 2, hudY + 30), "Flag Mode")
-        flagLabel.setTextColor("white")
-        flagLabel.setSize(12)
-        flagLabel.draw(self.win)
-        self.hudItems.append(flagLabel)
+        poleX = fx + s * 0.3
+        self.flagPole = Line(
+            Point(poleX, fy + s * 0.15),
+            Point(poleX, fy + s * 0.85)
+        )
+        self.flagPole.setWidth(3)
+        self.flagPole.draw(self.win)
 
-        # Quit button
-        quitBox = Rectangle(Point(self.winWidth - 90, hudY + 10),
-                            Point(self.winWidth - 10, hudY + 50))
-        quitBox.setFill(color_rgb(180, 50, 50))
-        quitBox.draw(self.win)
-        self.hudItems.append(quitBox)
+        self.mineText = Text(Point(95, self.windowSize + 30), str(self.numMines))
+        self.mineText.setTextColor("white")
+        self.mineText.setSize(16)
+        self.mineText.setStyle("bold")
+        self.mineText.draw(self.win)
 
-        quitLabel = Text(Point(self.winWidth - 50, hudY + 30), "Quit")
-        quitLabel.setTextColor("white")
-        quitLabel.setSize(12)
-        quitLabel.setStyle("bold")
-        quitLabel.draw(self.win)
-        self.hudItems.append(quitLabel)
+        # TIMER
+        self.timerText = Text(
+            Point(self.windowSize // 2, self.windowSize + 30),
+            "0"
+        )
+        self.timerText.setTextColor("white")
+        self.timerText.setSize(16)
+        self.timerText.setStyle("bold")
+        self.timerText.draw(self.win)
 
-        # Store button bounds for click detection
-        self.flagBoxBounds = (self.winWidth // 2 - 40, hudY + 10,
-                              self.winWidth // 2 + 40, hudY + 50)
-        self.quitBoxBounds = (self.winWidth - 90, hudY + 10,
-                              self.winWidth - 10,  hudY + 50)
+        # QUIT
+        self.quitText = Text(
+            Point(self.windowSize - 30, self.windowSize + 30),
+            "X"
+        )
+        self.quitText.setTextColor("white")
+        self.quitText.setSize(18)
+        self.quitText.setStyle("bold")
+        self.quitText.draw(self.win)
 
-    # Checks if a click point is within a bounding box (x1, y1, x2, y2).
-    def _inBounds(self, point, bounds):
-        x, y = point.getX(), point.getY()
-        x1, y1, x2, y2 = bounds
-        return x1 <= x <= x2 and y1 <= y <= y2
+    # =========================
+    # TIMER
+    # =========================
 
-    # ------------------------------------------------------------------ #
-    #  End screens                                                         #
-    # ------------------------------------------------------------------ #
+    def _updateTimer(self):
+        if self.timerStarted:
+            elapsed = int(time.time() - self.startTime)
+        else:
+            elapsed = 0
 
-    # Draws a message in the centre of the board.
-    def _drawEndScreen(self, message, color):
-        overlay = Rectangle(Point(0, 0), Point(self.winWidth, self.rows * self.cellSize))
-        overlay.setFill(color)
-        overlay.setOutline(color)
-        overlay.draw(self.win)
+        self.timerText.setText(str(elapsed))
 
-        text = Text(Point(self.winWidth / 2, self.rows * self.cellSize / 2), message)
-        text.setSize(24)
-        text.setStyle("bold")
-        text.setTextColor("white")
-        text.draw(self.win)
+    # =========================
+    # GAME LOOP
+    # =========================
 
-        subText = Text(Point(self.winWidth / 2, self.rows * self.cellSize / 2 + 40), "Click anywhere to quit.")
-        subText.setSize(12)
-        subText.setTextColor("white")
-        subText.draw(self.win)
-
-    # ------------------------------------------------------------------ #
-    #  Game loop                                                           #
-    # ------------------------------------------------------------------ #
-
-    # Starts the game loop.
     def start(self):
-        flagMode = False
-
         while not self.isOver:
 
-            # Waits for a click.
-            click = self.win.getMouse()
+            click = self.win.checkMouse()
 
-            # Checks if the quit button was clicked.
-            if self._inBounds(click, self.quitBoxBounds):
-                self.isOver = True
-                break
+            if click:
+                self._handleClick(click)
 
-            # Checks if the flag button was clicked.
-            if self._inBounds(click, self.flagBoxBounds):
-                flagMode = not flagMode
-                continue
+            self._updateTimer()
+            time.sleep(0.03)
 
-            # Gets the clicked cell.
-            cell = self.board.getClickedCell(click)
+        self._gameOverScreen()
 
-            # Ignores clicks outside the board.
-            if cell is None:
-                continue
+    # =========================
+    # INPUT HANDLING
+    # =========================
 
-            # First click: place mines then reveal.
-            if self.isFirstClick:
-                self.board.initialReveal(cell)
-                self.isFirstClick = False
+    def _handleClick(self, point):
 
-            # Flag mode: toggle flag on the cell.
-            elif flagMode:
-                self.board.flag(cell)
-                self.flagCount += 1 if cell.isFlagged else -1
-                self._drawHUD()
+        x, y = point.getX(), point.getY()
 
-            # Reveal mode: reveal the cell.
-            else:
-                hitMine = self.board.reveal(cell)
+        # quit
+        if x > self.windowSize - 60 and y > self.windowSize:
+            self.isOver = True
+            return
 
-                # Game over: hit a mine.
-                if hitMine:
-                    self.board.revealAllMines()
-                    self._drawEndScreen("You lose!", color_rgb(180, 50, 50))
-                    self.win.getMouse()
-                    self.isOver = True
-                    break
+        # board click
+        cell = self.board.getClickedCell(point)
 
-                # Win: all safe cells revealed.
-                if self.board.isSolved():
-                    self._drawEndScreen("You win!", color_rgb(50, 150, 50))
-                    self.win.getMouse()
-                    self.isOver = True
-                    break
+        if not cell:
+            return
 
+        # FIRST CLICK RULE
+        if self.isFirstClick:
+            self.board.initialReveal(cell)
+            self.isFirstClick = False
+
+            self.startTime = time.time()
+            self.timerStarted = True
+
+        # FLAG MODE (optional)
+        if self.flagMode:
+            self.board.flag(cell)
+            return
+
+        # NORMAL REVEAL
+        hitMine = self.board.reveal(cell)
+
+        if hitMine:
+            self.board.revealAllMines()
+            self.isOver = True
+
+        elif self.board.isSolved():
+            self.isOver = True
+
+    # =========================
+    # END SCREEN
+    # =========================
+
+    def _gameOverScreen(self):
+        msg = Text(
+            Point(self.windowSize // 2, self.windowSize // 2),
+            "Game Over"
+        )
+        msg.setSize(24)
+        msg.setTextColor("white")
+        msg.setStyle("bold")
+        msg.draw(self.win)
+
+        self.win.getMouse()
         self.win.close()

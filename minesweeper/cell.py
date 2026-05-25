@@ -29,7 +29,9 @@ class Cell:
         self.adjacentMines = 0
         self.drawn = []
         self.x = self.col * self.size
-        self.y = self.row * self.size
+
+        # Add 60 to the y-coordinate to account for the HUD.
+        self.y = (self.row * self.size) + 60
 
         # Creates that checkered color pattern
         if (self.row + self.col) % 2 == 0:
@@ -91,7 +93,7 @@ class Cell:
                 # Draws the number for adjacent mines.
                 if self.adjacentMines > 0:
                     number = Text(Point(self.x + self.size / 2, self.y + self.size / 2), str(self.adjacentMines))
-                    number.setOutline(adjacentMineColors[self.adjacentMines])
+                    number.setFill(adjacentMineColors[self.adjacentMines])
                     number.setSize(min(36, max(5, self.size // 2)))
                     number.setStyle("bold")
                     self._objDraw(number)
