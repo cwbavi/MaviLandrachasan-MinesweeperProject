@@ -2,11 +2,13 @@ from board import Board
 from graphics import *
 import time
 
+
 HUD_HEIGHT = 60
 
 
 class Game:
     def __init__(self, difficulty):
+
         difficulties = [
             (8, 8, 10),
             (16, 16, 40),
@@ -18,66 +20,51 @@ class Game:
         self.windowSize = 600
         self.cellSize = self.windowSize // max(self.rows, self.cols)
 
-        self.win = GraphWin("Minesweeper", self.windowSize, self.windowSize + HUD_HEIGHT)
-        self.win.setBackground(color_rgb(40, 40, 40))
+        self.win = GraphWin(
+            "Minesweeper",
+            self.windowSize,
+            self.windowSize + HUD_HEIGHT
+        )
+        self.win.setBackground(color_rgb(35, 35, 35))
 
         self.board = Board(self.rows, self.cols, self.cellSize, self.numMines, self.win)
 
-        # State
+        # =========================
+        # STATE
+        # =========================
         self.isOver = False
         self.isFirstClick = True
-        self.flagMode = False
+
         self.flagCount = 0
 
-        # Timer
+        # click system
+        self.lastClickType = "left"
+
+        # timer
         self.timerStarted = False
         self.startTime = 0
 
-        # HUD objects
+        # hover (optional hook)
+        self.hoveredCell = None
+
+        # HUD
         self._createHUD()
 
     # =========================
-    # HUD CREATION
+    # HUD
     # =========================
 
     def _createHUD(self):
 
-        # background
-        self.hudBG = Rectangle(
-            Point(0, self.windowSize),
-            Point(self.windowSize, self.windowSize + HUD_HEIGHT)
+        self.mineText = Text(
+            Point(80, self.windowSize + 30),
+            str(self.numMines)
         )
-        self.hudBG.setFill(color_rgb(25, 25, 25))
-        self.hudBG.setOutline(color_rgb(25, 25, 25))
-        self.hudBG.draw(self.win)
-
-        # FLAG ICON + COUNT
-        fx, fy, s = 20, self.windowSize + 10, 30
-
-        self.flagIcon = Polygon(
-            Point(fx + s * 0.3, fy + s * 0.15),
-            Point(fx + s * 0.7, fy + s * 0.35),
-            Point(fx + s * 0.3, fy + s * 0.55)
-        )
-        self.flagIcon.setFill("red")
-        self.flagIcon.setOutline("red")
-        self.flagIcon.draw(self.win)
-
-        poleX = fx + s * 0.3
-        self.flagPole = Line(
-            Point(poleX, fy + s * 0.15),
-            Point(poleX, fy + s * 0.85)
-        )
-        self.flagPole.setWidth(3)
-        self.flagPole.draw(self.win)
-
-        self.mineText = Text(Point(95, self.windowSize + 30), str(self.numMines))
         self.mineText.setTextColor("white")
         self.mineText.setSize(16)
         self.mineText.setStyle("bold")
         self.mineText.draw(self.win)
 
-        # TIMER
         self.timerText = Text(
             Point(self.windowSize // 2, self.windowSize + 30),
             "0"
@@ -87,7 +74,6 @@ class Game:
         self.timerText.setStyle("bold")
         self.timerText.draw(self.win)
 
-        # QUIT
         self.quitText = Text(
             Point(self.windowSize - 30, self.windowSize + 30),
             "X"
@@ -101,6 +87,11 @@ class Game:
     # TIMER
     # =========================
 
+    def _startTimer(self):
+        if not self.timerStarted:
+            self.startTime = time.time()
+            self.timerStarted = True
+
     def _updateTimer(self):
         if self.timerStarted:
             elapsed = int(time.time() - self.startTime)
@@ -110,11 +101,14 @@ class Game:
         self.timerText.setText(str(elapsed))
 
     # =========================
-    # GAME LOOP
+    # MAIN LOOP
     # =========================
 
     def start(self):
+
         while not self.isOver:
+
+            self._handleHover()
 
             click = self.win.checkMouse()
 
@@ -122,12 +116,12 @@ class Game:
                 self._handleClick(click)
 
             self._updateTimer()
-            time.sleep(0.03)
+            time.sleep(0.02)
 
         self._gameOverScreen()
 
     # =========================
-    # INPUT HANDLING
+    # INPUT
     # =========================
 
     def _handleClick(self, point):
@@ -139,40 +133,65 @@ class Game:
             self.isOver = True
             return
 
-        # board click
         cell = self.board.getClickedCell(point)
 
         if not cell:
             return
 
-        # FIRST CLICK RULE
+        # update click type
+        self.lastClickType = self.win.lastClickType
+
+        # FIRST CLICK
         if self.isFirstClick:
             self.board.initialReveal(cell)
             self.isFirstClick = False
+            self._startTimer()
 
-            self.startTime = time.time()
-            self.timerStarted = True
-
-        # FLAG MODE (optional)
-        if self.flagMode:
+        # RIGHT CLICK = FLAG
+        if self.lastClickType == "right":
             self.board.flag(cell)
             return
 
-        # NORMAL REVEAL
+        # LEFT CLICK = REVEAL
         hitMine = self.board.reveal(cell)
 
         if hitMine:
             self.board.revealAllMines()
             self.isOver = True
+            return
 
-        elif self.board.isSolved():
+        if self.board.isSolved():
             self.isOver = True
+
+    # =========================
+    # HOVER (optional)
+    # =========================
+
+    def _handleHover(self):
+
+        mouse = self.win.checkMouse()
+
+        if not mouse:
+            return
+
+        cell = self.board.getClickedCell(mouse)
+
+        if cell != self.hoveredCell:
+
+            if self.hoveredCell:
+                self.hoveredCell.unhighlight()
+
+            self.hoveredCell = cell
+
+            if self.hoveredCell:
+                self.hoveredCell.highlight()
 
     # =========================
     # END SCREEN
     # =========================
 
     def _gameOverScreen(self):
+
         msg = Text(
             Point(self.windowSize // 2, self.windowSize // 2),
             "Game Over"

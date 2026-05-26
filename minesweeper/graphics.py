@@ -383,7 +383,9 @@ class GraphWin(tk.Canvas):
 
         self.mouseY = None 
 
-        self.bind("<Button-1>", self._onClick) 
+        self.bind("<Button-1>", self._onClick)
+
+        self.bind("<Button-3>", self._onRightClick)
 
         self.bind_all("<Key>", self._onKey) 
 
@@ -709,7 +711,17 @@ class GraphWin(tk.Canvas):
 
         if self._mouseCallback: 
 
-            self._mouseCallback(Point(e.x, e.y)) 
+            self._mouseCallback(Point(e.x, e.y))
+
+        self.lastClickType = "left"
+
+    def _onRightClick(self, e):
+
+        self.mouseX = e.x
+
+        self.mouseY = e.y
+
+        self.lastClickType = "right"
 
  
 

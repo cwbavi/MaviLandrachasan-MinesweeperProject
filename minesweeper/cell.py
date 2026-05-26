@@ -45,7 +45,6 @@ class Cell:
         self.colorUnrevealedHighlight = color_rgb(191, 225, 125)
         self.colorRevealedHighlight = color_rgb(236, 209, 183)
         self.colorBorders = color_rgb(135, 175, 58)
-        self._draw()
 
     # Changes isMine and adjacentMines. To be called after first cell is revealed.
     def fill(self, isMine, adjacentMines):
@@ -62,7 +61,7 @@ class Cell:
     If cell is revealed, it will show if it's a mine or how many adjacent mines there are.
     To be called at initialization and whenever a cell's state changes.
     """
-    def _draw(self):
+    def draw(self):
 
         # Undraws all previously drawn items in the cell.
         for obj in self.drawn:
@@ -97,18 +96,6 @@ class Cell:
                     number.setSize(min(36, max(5, self.size // 2)))
                     number.setStyle("bold")
                     self._objDraw(number)
-
-                    # Creates a border around the cell if it is next to an unrevealed cell.
-                    borders = [Line(Point(self.x, self.y), Point(self.x + self.size, self.y)),                         # up
-                               Line(Point(self.x + self.size, self.y), Point(self.x + self.size, self.y + self.size)), # right
-                               Line(Point(self.x, self.y + self.size), Point(self.x + self.size, self.y + self.size)), # down
-                               Line(Point(self.x, self.y), Point(self.x, self.y + self.size))]                         # left
-                    for i in range(4):
-                        if self.neighborsUnrevealed[i]:
-                            border = borders[i]
-                            border.setFill(self.colorBorders)
-                            border.setWidth(3)
-                            self._objDraw(border)
                                 
         # Unrevealed box        
         else:
@@ -136,28 +123,28 @@ class Cell:
     # Digs up the cell.
     def reveal(self):
         self.isRevealed = True
-        self._draw()
+        self.draw()
 
     # Flags the cell.
     def flag(self):
         if not self.isRevealed:
             self.isFlagged = not self.isFlagged
-            self._draw()
+            self.draw()
 
     # Highlights the cell when the mouse is hovering over it.
     def highlight(self):
         self.isHighlighted = True
-        self._draw()
+        self.draw()
 
     # Unhighlights the cell when the mouse is not hovering over it.
     def unhighlight(self):
         self.isHighlighted = False
-        self._draw()
+        self.draw()
 
     # Updates neighborsUnrevealed.
     def updateBorders(self, neighbors):
         self.neighborsUnrevealed = neighbors
-        self._draw()
+        self.draw()
 
     # Checks if mouse cursor is in the cell.
     def containsClick(self, point):
