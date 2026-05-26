@@ -20,6 +20,10 @@ class Board:
         Note: when these cells are created, they are also drawn, so there is no need for a _draw method for the board.
         """
         self.cells = [[Cell(row, col, cellSize, win) for col in range(self.cols)] for row in range(self.rows)]
+        # Draws every cell.
+        for col in self.cells:
+            for cell in col:
+                cell.draw()        
         self.mines = []
     
     # Returns the cell from the row and col if there isn't an index error. Otherwise, it returne None.
@@ -39,8 +43,8 @@ class Board:
         for x in var:
             for y in var:
 
-                # Ensures that the neighbor is adjacent, not diagonal.
-                if abs(x - y) == 1:
+                # Ensures that the neighbor is not the cell itself.
+                if x != 0 or y != 0:
                     neighbors.append(self._cells(cell.row + x, cell.col + y))
         return neighbors
     
@@ -73,7 +77,7 @@ class Board:
             y = randint(0, self.cols - 1)
 
             # The mine cannot be in reach of the first reveal and it cannot be placed at the location of another mine.
-            if abs(cell0.row - x) > 1 and abs(cell0.col - y) > 1 and ([x, y] not in self.mines):
+            if (abs(cell0.row - x) > 1 or abs(cell0.col - y) > 1) and ([x, y] not in self.mines):
                 self.mines.append([x, y])
                 i += 1
         
@@ -115,7 +119,8 @@ class Board:
         toUpdate = self._neighbors(cell0) # Defines cells that need to have their borders updated.
         toUpdate.append(cell0)
         for cell1 in toUpdate:
-            cell1.updateBorders([self._getUnrevealedStatus(cell2) for cell2 in self._neighbors(cell1)])
+            if cell1 is not None:
+                cell1.updateBorders([self._getUnrevealedStatus(cell2) for cell2 in self._neighbors(cell1)])
 
         # Return statement for game over if a mine is revealed.
         return cell0.isMine
@@ -154,16 +159,6 @@ class Board:
 
         # If all non-mine cells are revealed, the board is solved.
         return True
-    
-    # Returns the neighboring cells of the cell at the row and col.
-    def _neighbors(self, row, col):
-        neighbors = []
-        for x in var:
-            for y in var:
-                # Ensures that the neighbor is adjacent, not diagonal.
-                if abs(x - y) == 1:
-                    neighbors.append(self._cells(row + x, col + y))
-        return neighbors
 
     # String representation of the board. Mines are represented by M and non-mine cells are represented by their number of adjacent mines.
     def __str__(self):
